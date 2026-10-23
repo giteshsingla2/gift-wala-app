@@ -6,33 +6,32 @@ function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-export function formatTime(d: Date) {
-  const h = d.getHours();
-  const m = d.getMinutes().toString().padStart(2, '0');
+/** "19:30" or a Date → "7:30 PM". */
+export function formatTime(value: string | Date) {
+  const [h, m] = typeof value === 'string' ? value.split(':').map(Number) : [value.getHours(), value.getMinutes()];
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m} ${h < 12 ? t.dates.am : t.dates.pm}`;
+  return `${h12}:${String(m).padStart(2, '0')} ${h < 12 ? t.dates.am : t.dates.pm}`;
 }
 
-export function formatShortDate(d: Date) {
-  return `${d.getDate()} ${t.dates.months[d.getMonth()]}`;
+/** India calendar date "YYYY-MM-DD" → "8 Nov". */
+export function formatDay(day: string) {
+  const [, m, d] = day.split('-').map(Number);
+  return `${d} ${t.dates.months[m - 1]}`;
 }
 
-// "11:59 PM" today, "Sunday" this week, "8 Nov" further out.
-export function formatEnds(iso: string, now = new Date()) {
+/** ISO moment → "8 Nov, 10:00 AM". */
+export function formatMoment(iso: string) {
   const d = new Date(iso);
-  const days = Math.round((startOfDay(d) - startOfDay(now)) / DAY_MS);
-  if (days <= 0) return formatTime(d);
-  if (days < 7) return t.dates.weekdays[d.getDay()];
-  return formatShortDate(d);
+  return `${d.getDate()} ${t.dates.months[d.getMonth()]}, ${formatTime(d)}`;
 }
 
-// "Yesterday", "Today", or "8 Nov".
+/** "Yesterday", "Today", or "8 Nov". */
 export function formatWonAt(iso: string, now = new Date()) {
   const d = new Date(iso);
   const days = Math.round((startOfDay(now) - startOfDay(d)) / DAY_MS);
   if (days === 0) return t.dates.today;
   if (days === 1) return t.dates.yesterday;
-  return formatShortDate(d);
+  return `${d.getDate()} ${t.dates.months[d.getMonth()]}`;
 }
 
 export function minutesSince(iso: string, now = new Date()) {
@@ -51,10 +50,12 @@ export function splitDuration(ms: number) {
 
 export const pad2 = (n: number) => n.toString().padStart(2, '0');
 
-export function initials(first: string, last?: string) {
-  return `${first[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
+export function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return `${parts[0]?.[0] ?? ''}${parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : ''}`.toUpperCase();
 }
 
-export function fullName(first: string, last?: string) {
-  return last ? `${first} ${last}` : first;
+/** The moment a countdown on a giveaway should run to: its result time, else the end of its last date. */
+export function countdownTarget(g: { resultAt: string | null; lastDate: string }) {
+  return g.resultAt ?? `${g.lastDate}T23:59:59+05:30`;
 }

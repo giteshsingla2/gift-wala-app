@@ -5,7 +5,7 @@ import { LaurelCrown } from '@/components/ui/art';
 import { PlayIcon } from '@/components/ui/icons';
 import { colors, fonts, headingShadow } from '@/constants/theme';
 import { t } from '@/i18n';
-import { fullName, initials } from '@/lib/format';
+import { formatWonAt, initials } from '@/lib/format';
 import type { Winner } from '@/types';
 
 // Mega winner on the Winners hero: photo (or initials) in a gold ring with laurels and a crown.
@@ -16,14 +16,15 @@ export function WinnerSpotlight({ winner, onWatchVideo }: { winner: Winner; onWa
         {winner.photoUrl ? (
           <Image source={{ uri: winner.photoUrl }} style={styles.photo} contentFit="cover" accessible={false} />
         ) : (
-          <Text style={styles.initials}>{initials(winner.firstName, winner.lastName)}</Text>
+          <Text style={styles.initials}>{initials(winner.name)}</Text>
         )}
       </LaurelCrown>
-      <Text style={styles.name}>{fullName(winner.firstName, winner.lastName)}</Text>
+      <Text style={styles.name}>{winner.name}</Text>
       <Text style={styles.prize}>
         {t.winners.wonPrefix}
         <Text style={styles.prizeName}>{winner.prizeLabel}</Text>
-        {winner.drawLabel ? `${t.common.dot}${t.dates.megaDraw(winner.drawLabel)}` : ''}
+        {t.common.dot}
+        {formatWonAt(winner.wonAt)}
       </Text>
       {winner.videoUrl && onWatchVideo ? (
         <Pressable onPress={onWatchVideo} accessibilityRole="button" style={({ pressed }) => [styles.video, pressed && { opacity: 0.75 }]}>

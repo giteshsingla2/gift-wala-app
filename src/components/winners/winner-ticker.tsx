@@ -19,13 +19,13 @@ export function WinnerTicker({ winners, intervalMs = 4000 }: { winners: Winner[]
 
   const w = winners[index % Math.max(1, winners.length)];
   if (!w) return null;
-  const line = t.home.ticker(w.firstName, w.town, w.prizeLabel);
+  const line = t.home.ticker(w.name.split(' ')[0], w.town, w.prizeLabel);
 
   return (
     <View style={styles.pill} accessibilityLiveRegion="polite">
       <Animated.View key={w.id} entering={FadeIn.duration(300)} style={styles.row}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials(w.firstName, w.lastName)}</Text>
+          <Text style={styles.avatarText}>{initials(w.name)}</Text>
         </View>
         <Text style={styles.text} numberOfLines={1}>
           <Text style={styles.name}>{line.name}</Text>

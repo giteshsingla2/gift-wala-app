@@ -1,7 +1,8 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,21 +10,22 @@ import { getHome } from '@/api';
 import { GiveawayCarouselCard } from '@/components/giveaway/carousel-card';
 import { HaazriCard } from '@/components/giveaway/haazri-card';
 import { HomeHeroArt } from '@/components/giveaway/hero-art';
+import { TaskSheet } from '@/components/giveaway/task-sheet';
 import { Bunting, Coin, ConfettiLayer, GiftGlyph, type ConfettiPiece } from '@/components/ui/art';
 import { Countdown } from '@/components/ui/countdown';
-import { GlassIconButton } from '@/components/ui/glass';
 import { HeroBackground } from '@/components/ui/hero';
-import { BellIcon } from '@/components/ui/icons';
 import { RibbonPanel } from '@/components/ui/ribbon-panel';
 import { ScreenState } from '@/components/ui/screen-state';
 import { GoldPill, LiveChip } from '@/components/ui/tag';
 import { WhatsAppCard } from '@/components/ui/whatsapp-card';
 import { MoreWinnersDivider, WinnerCard, WinnerSummaryRow } from '@/components/winners/winner-card';
 import { WinnerTicker } from '@/components/winners/winner-ticker';
-import { config } from '@/constants/config';
 import { colors, fonts, goldGradient, headingShadow, type as typo } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { t } from '@/i18n';
+import { countdownTarget, formatDay } from '@/lib/format';
+import { setWallet } from '@/store/session';
+import type { Giveaway } from '@/types';
 
 const CONFETTI: ConfettiPiece[] = [
   { kind: 'rect', x: 28, y: 190, color: '#FFC233', rotate: 25 },
@@ -45,11 +47,19 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { data, error, refreshing, refresh } = useApi(getHome);
+  const [taskFor, setTaskFor] = useState<Giveaway | null>(null);
+
+  useEffect(() => {
+    if (data) setWallet(data.wallet);
+  }, [data]);
 
   if (!data) return <ScreenState error={error} onRetry={refresh} />;
 
-  const featuredPrize = data.featured.title;
-  const openVideo = (url?: string) => url && WebBrowser.openBrowserAsync(url);
+  const { sections } = data;
+  const featured = sections.megaPoster ? data.featured : null;
+  const openGiveaway = (g: Giveaway) => router.push(`/giveaway/${g.id}`);
+  const openVideo = (url: string | null) => url && WebBrowser.openBrowserAsync(url);
+  const showWinners = sections.luckyWinners && (data.pinned.length > 0 || data.yesterdayWinnersCount > 0);
 
   return (
     <View style={styles.screen}>
@@ -57,7 +67,7 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#FFFFFF" progressViewOffset={insets.top} />}>
-        <HeroBackground midStop={0.58} style={[styles.hero, { paddingTop: insets.top }]}>
+        <HeroBackground midStop={0.58} style={[styles.hero, { paddingTop: insets.top, paddingBottom: featured ? 86 : 28 }]}>
           <ConfettiLayer pieces={CONFETTI} width={width} height={600} style={{ top: insets.top }} />
           <Bunting width={width} />
 
@@ -70,69 +80,99 @@ export default function HomeScreen() {
                 {t.appName}
               </Text>
             </View>
-            <View style={styles.topActions}>
-              <View style={styles.wallet} accessible accessibilityLabel={t.a11y.wallet(data.walletTotal)}>
-                <Coin size={30} />
-                <Text style={styles.walletText}>{t.rupees(data.walletTotal)}</Text>
-              </View>
-              <GlassIconButton label={t.a11y.notifications} round>
-                <BellIcon size={22} color="#FFFFFF" />
-                {data.unreadNotifications > 0 && <View style={styles.unreadDot} />}
-              </GlassIconButton>
-            </View>
-          </View>
-
-          <View style={styles.tickerWrap}>
-            <WinnerTicker winners={data.recentWinners} />
-          </View>
-
-          <Pressable style={styles.featured} onPress={() => router.navigate('/haazri')} accessibilityRole="button" accessibilityLabel={`${t.home.featuredTitle(featuredPrize)}. ${t.home.featuredSubtitle(data.haazri.haazriDays)}`}>
-            <GoldPill label={t.home.megaDraw} />
-            <Text style={styles.heroTitle}>{t.home.featuredTitle(featuredPrize)}</Text>
-            <Text style={styles.heroSubtitle}>{t.home.featuredSubtitle(data.haazri.haazriDays)}</Text>
-            <HomeHeroArt giveaway={data.featured} />
-            <View style={styles.countdown}>
-              <Countdown endsAt={data.featured.resultAt} label={t.countdown.resultIn} />
-            </View>
-          </Pressable>
-        </HeroBackground>
-
-        <View style={styles.haazriCard}>
-          <HaazriCard progress={data.haazri} onPress={() => router.navigate('/haazri')} />
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitle}>
-              <Text style={styles.h2} accessibilityRole="header">
-                {t.home.todaysGiveaways}
-              </Text>
-              <LiveChip label={t.home.live} />
-            </View>
-            <Pressable onPress={() => router.navigate('/giveaways')} accessibilityRole="link" hitSlop={12}>
-              <Text style={styles.link}>{t.home.seeAll}</Text>
+            <Pressable
+              onPress={() => router.navigate('/profile')}
+              style={styles.wallet}
+              accessibilityRole="button"
+              accessibilityLabel={t.a11y.wallet(data.wallet)}>
+              <Coin size={30} />
+              <Text style={styles.walletText}>{t.rupees(data.wallet)}</Text>
             </Pressable>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carousel}>
-            {data.today.map((g) => (
-              <GiveawayCarouselCard key={g.id} giveaway={g} onPress={() => router.push(`/giveaway/${g.id}`)} />
+
+          {sections.ticker && data.ticker.length > 0 ? (
+            <View style={styles.tickerWrap}>
+              <WinnerTicker winners={data.ticker} />
+            </View>
+          ) : null}
+
+          {featured ? (
+            <Pressable style={styles.featured} onPress={() => openGiveaway(featured)} accessibilityRole="button" accessibilityLabel={t.home.featuredTitle(featured.title)}>
+              <GoldPill label={featured.tag || t.home.megaDraw} />
+              <Text style={styles.heroTitle}>{t.home.featuredTitle(featured.title)}</Text>
+              <Text style={styles.heroSubtitle}>{t.home.featuredSubtitle(featured.haazriDays)}</Text>
+              <HomeHeroArt imageUrl={featured.imageUrl} />
+              <View style={styles.countdown}>
+                {featured.resultAt ? (
+                  <Countdown endsAt={countdownTarget(featured)} label={t.countdown.resultIn} />
+                ) : (
+                  <Text style={styles.heroSubtitle}>{t.home.lastDate(formatDay(featured.lastDate))}</Text>
+                )}
+              </View>
+            </Pressable>
+          ) : null}
+        </HeroBackground>
+
+        {featured ? (
+          <View style={styles.haazriCard}>
+            <HaazriCard giveaway={featured} onDoTask={() => setTaskFor(featured)} onOpen={() => router.navigate({ pathname: '/haazri', params: { id: featured.id } })} />
+          </View>
+        ) : null}
+
+        {sections.today ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitle}>
+                <Text style={styles.h2} accessibilityRole="header">
+                  {t.home.todaysGiveaways}
+                </Text>
+                <LiveChip label={t.home.live} />
+              </View>
+              <Pressable onPress={() => router.navigate('/giveaways')} accessibilityRole="link" hitSlop={12}>
+                <Text style={styles.link}>{t.home.seeAll}</Text>
+              </Pressable>
+            </View>
+            {data.giveaways.length === 0 ? (
+              <Text style={[typo.secondary, styles.empty]}>{t.home.nothingRunning}</Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carousel}>
+                {data.giveaways.map((g) => (
+                  <GiveawayCarouselCard key={g.id} giveaway={g} onPress={() => openGiveaway(g)} />
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        ) : null}
+
+        {showWinners ? (
+          <RibbonPanel title={t.home.luckyWinners} style={styles.winners}>
+            {data.pinned.map((w) => (
+              <WinnerCard key={w.id} winner={w} onWatchVideo={() => openVideo(w.videoUrl)} />
             ))}
-          </ScrollView>
-        </View>
+            {data.pinned.length > 0 ? <MoreWinnersDivider /> : null}
+            <WinnerSummaryRow
+              count={data.yesterdayWinnersCount}
+              label={data.yesterdayWinnersCount > 0 ? t.home.wonYesterday : t.home.seeAllWinners}
+              onPress={() => router.navigate('/winners')}
+            />
+          </RibbonPanel>
+        ) : null}
 
-        <RibbonPanel title={t.home.luckyWinners} style={styles.winners}>
-          <WinnerCard winner={data.megaWinner} onWatchVideo={() => openVideo(data.megaWinner.videoUrl)} />
-          {data.recentWinners.slice(0, 1).map((w) => (
-            <WinnerCard key={w.id} winner={w} />
-          ))}
-          <MoreWinnersDivider />
-          <WinnerSummaryRow count={data.yesterdayWinnersCount} label={t.home.wonDailyYesterday} onPress={() => router.navigate('/winners')} />
-        </RibbonPanel>
-
-        <View style={styles.whatsapp}>
-          <WhatsAppCard onJoin={() => Linking.openURL(config.whatsappChannelUrl)} />
-        </View>
+        {sections.whatsapp && data.whatsappChannelUrl ? (
+          <View style={styles.whatsapp}>
+            <WhatsAppCard onJoin={() => Linking.openURL(data.whatsappChannelUrl)} />
+          </View>
+        ) : null}
       </ScrollView>
+
+      <TaskSheet
+        giveaway={taskFor}
+        onClose={() => setTaskFor(null)}
+        onDone={(g) => {
+          setTaskFor(null);
+          router.push({ pathname: '/haazri-done', params: { id: g.id } });
+        }}
+      />
     </View>
   );
 }
@@ -140,12 +180,11 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { paddingBottom: 24 },
-  hero: { paddingBottom: 86 },
+  hero: {},
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 4, paddingHorizontal: 16 },
   logo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoTile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', boxShadow: `0px 3px 0px ${colors.goldEdge}` },
   logoText: { fontFamily: fonts.display, fontSize: 25, lineHeight: 32, color: colors.onDark, ...headingShadow },
-  topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   wallet: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -159,7 +198,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
   },
   walletText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.onDark },
-  unreadDot: { position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: '#FF5C8A', borderWidth: 2, borderColor: colors.primaryEdge },
   tickerWrap: { paddingTop: 12, paddingHorizontal: 16 },
   featured: { alignItems: 'center', paddingTop: 18, paddingHorizontal: 16 },
   heroTitle: { ...typo.heroTitle, marginTop: 10, textAlign: 'center', textShadowColor: colors.navyInk, textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 0 },
@@ -171,6 +209,7 @@ const styles = StyleSheet.create({
   sectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   h2: { fontFamily: fonts.display, fontSize: 22, lineHeight: 28, color: colors.text },
   link: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary, textDecorationLine: 'underline' },
+  empty: { paddingHorizontal: 16 },
   carousel: { gap: 14, paddingHorizontal: 16, paddingBottom: 10 },
   winners: { marginTop: 18, marginHorizontal: 16 },
   whatsapp: { paddingTop: 24, paddingHorizontal: 16 },

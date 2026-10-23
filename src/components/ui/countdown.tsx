@@ -31,13 +31,6 @@ export function Countdown({ endsAt, label }: { endsAt: string; label?: string })
   );
 }
 
-// "06:14:32" style text for the detail hero chip.
-export function useHms(endsAt: string) {
-  const now = useNow(1000);
-  const { days, hours, minutes, seconds } = splitDuration(new Date(endsAt).getTime() - now);
-  return `${pad2(days * 24 + hours)}:${pad2(minutes)}:${pad2(seconds)}`;
-}
-
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   label: { fontFamily: fonts.body, fontSize: 14, color: colors.onDarkMuted, marginRight: 4 },

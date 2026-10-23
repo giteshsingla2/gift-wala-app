@@ -36,5 +36,5 @@ export function useApi<T>(load: () => Promise<T>, deps: unknown[] = []) {
     }, [run]),
   );
 
-  return { data, error, refreshing, refresh: () => run(true), setData };
+  return { data, error, refreshing, refresh: () => run(true), reload: () => run(false), setData };
 }

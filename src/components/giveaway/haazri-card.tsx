@@ -5,13 +5,18 @@ import { Button3D } from '@/components/ui/button-3d';
 import { CalendarCheckIcon, CheckIcon } from '@/components/ui/icons';
 import { colors, goldGradient, shadows, type as typo } from '@/constants/theme';
 import { t } from '@/i18n';
-import type { HaazriProgress } from '@/types';
+import { giveawayAction } from '@/lib/giveaway-state';
+import type { Giveaway } from '@/types';
 import { CoinTrack } from './coin-track';
 
-// Home card that overlaps the hero: today's haazri status, the coin track and the main action.
-export function HaazriCard({ progress, onPress }: { progress: HaazriProgress; onPress: () => void }) {
-  const day = progress.markedToday ? progress.daysMarked : progress.daysMarked + 1;
-  const left = Math.max(0, progress.haazriDays - day);
+// Home card that overlaps the hero: the user's haazri in the Mega Draw and today's main action.
+export function HaazriCard({ giveaway, onDoTask, onOpen }: { giveaway: Giveaway; onDoTask: () => void; onOpen: () => void }) {
+  const p = giveaway.progress;
+  const done = p?.daysCompleted ?? 0;
+  const day = p?.currentDay ?? 1;
+  const left = Math.max(0, giveaway.haazriDays - day);
+  const action = giveawayAction(giveaway);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -20,14 +25,21 @@ export function HaazriCard({ progress, onPress }: { progress: HaazriProgress; on
         </LinearGradient>
         <View style={styles.headerText}>
           <Text style={typo.sectionHeading}>{t.home.dailyHaazri}</Text>
-          <Text style={typo.secondary}>{t.home.haazriProgress(day, progress.haazriDays, left, progress.prizeShortName)}</Text>
+          <Text style={typo.secondary}>
+            {action === 'tooLate' ? t.haazri.tooLate : t.home.haazriProgress(day, giveaway.haazriDays, left, giveaway.title)}
+          </Text>
         </View>
       </View>
-      <CoinTrack progress={progress} />
-      {progress.markedToday ? (
-        <Button3D variant="done" label={t.home.haazriDoneToday} icon={<CheckIcon size={22} color={colors.successText} />} onPress={onPress} />
+      <CoinTrack total={giveaway.haazriDays} done={done} doneToday={p?.doneToday ?? false} />
+      {action === 'start' || action === 'doToday' ? (
+        <Button3D variant="gold" label={t.home.doHaazri} icon={<CheckIcon size={22} color={colors.goldInk} />} onPress={onDoTask} />
       ) : (
-        <Button3D variant="gold" label={t.home.markHaazri} icon={<CheckIcon size={22} color={colors.goldInk} />} onPress={onPress} />
+        <Button3D
+          variant="done"
+          label={action === 'inDraw' ? t.home.inTheDraw : action === 'tooLate' ? t.haazri.tooLate : t.home.haazriDoneToday}
+          icon={action === 'tooLate' ? undefined : <CheckIcon size={22} color={colors.successText} />}
+          onPress={onOpen}
+        />
       )}
     </View>
   );

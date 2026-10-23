@@ -5,7 +5,6 @@ import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop, Text } from 'react
 import { CoinG, CoinGradient, SPARKLE_PATH, SvgScope, decorative, useSvgId } from '@/components/ui/art';
 import { colors, fonts } from '@/constants/theme';
 import { t } from '@/i18n';
-import type { HaazriProgress } from '@/types';
 
 // The winding haazri road. Lays out any number of days as serpentine rows of up to 4 nodes
 // (left to right, curve down, right to left...). Above 15 days it switches to a plain grid.
@@ -68,20 +67,19 @@ function layoutGrid(n: number): Node[] {
   });
 }
 
-export function HaazriPath({ progress }: { progress: HaazriProgress }) {
+export function HaazriPath({ total: n, done: doneInput, doneToday, prizeTitle }: { total: number; done: number; doneToday: boolean; prizeTitle: string }) {
   const sid = useSvgId();
-  const n = progress.haazriDays;
   const grid = n > 15;
   const nodes = grid ? layoutGrid(n) : layoutRoad(n);
-  const done = Math.min(progress.daysMarked, n);
-  const todayIndex = progress.markedToday ? done - 1 : Math.min(done, n - 1);
+  const done = Math.min(doneInput, n);
+  const todayIndex = doneToday ? done - 1 : Math.min(done, n - 1);
   const lastRow = nodes[n - 1].row;
   const height = grid ? TOP + lastRow * 84 + 70 : TOP + lastRow * ROW_GAP + 64;
   const prize = nodes[n - 1];
-  const prizeLabel = t.haazri.prizeDraw(progress.prizeShortName);
+  const prizeLabel = t.haazri.prizeDraw(prizeTitle);
 
   return (
-    <View accessible accessibilityRole="image" accessibilityLabel={t.haazri.pathLabel(done, todayIndex + 1, n, progress.prizeShortName)}>
+    <View accessible accessibilityRole="image" accessibilityLabel={t.haazri.pathLabel(done, todayIndex + 1, n)}>
       <Svg width="100%" style={{ aspectRatio: W / height }} viewBox={`0 0 ${W} ${height}`} {...decorative}>
         <SvgScope id={sid}>
           <Defs>

@@ -1,22 +1,26 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getHaazri, markHaazri } from '@/api';
+import { getHaazri } from '@/api';
 import { HaazriPath } from '@/components/giveaway/haazri-path';
+import { TaskSheet } from '@/components/giveaway/task-sheet';
 import { ConfettiLayer, Medal, Sunburst, type ConfettiPiece } from '@/components/ui/art';
 import { Button3D } from '@/components/ui/button-3d';
 import { CheckboxRow } from '@/components/ui/checkbox-row';
-import { GlassChip, GlassIconButton } from '@/components/ui/glass';
 import { HeroBackground } from '@/components/ui/hero';
-import { BackIcon, CheckIcon, ClockIcon, ShieldIcon } from '@/components/ui/icons';
+import { CheckIcon, ClockIcon } from '@/components/ui/icons';
 import { ScreenState } from '@/components/ui/screen-state';
 import { colors, fonts, headingShadow } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { t } from '@/i18n';
-import { setPref, usePrefs } from '@/store/preferences';
+import { formatDay, formatTime } from '@/lib/format';
+import { giveawayAction } from '@/lib/giveaway-state';
+import { applyReminder } from '@/lib/reminders';
+import { saveProfile, useSession } from '@/store/session';
+import type { Giveaway } from '@/types';
 
 const CONFETTI: ConfettiPiece[] = [
   { kind: 'rect', x: 250, y: 80, color: '#FFC233', rotate: 25, w: 7, h: 13 },
@@ -30,32 +34,21 @@ export default function HaazriScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const prefs = usePrefs();
-  const { data, error, refreshing, refresh, setData } = useApi(getHaazri);
+  const params = useLocalSearchParams<{ id?: string }>();
+  const { user } = useSession();
+  const { data, error, refreshing, refresh } = useApi(getHaazri);
   const [selectedId, setSelectedId] = useState<string>();
-  const [marking, setMarking] = useState(false);
+  const [taskFor, setTaskFor] = useState<Giveaway | null>(null);
 
   if (!data) return <ScreenState error={error} onRetry={refresh} />;
 
-  const progress = data.find((h) => h.giveawayId === selectedId) ?? data[0];
-  if (!progress) return <ScreenState />;
+  const list = data.giveaways;
+  const g = list.find((x) => x.id === selectedId) ?? list.find((x) => x.id === params.id) ?? list[0];
 
-  const day = progress.markedToday ? progress.daysMarked : progress.daysMarked + 1;
-  const left = progress.haazriDays - progress.daysMarked - (progress.markedToday ? 0 : 1);
-  const skipsLeft = progress.freeSkips - progress.skipsUsed;
-  const qualified = progress.daysMarked >= progress.haazriDays;
-
-  const onMark = async () => {
-    setMarking(true);
-    try {
-      const updated = await markHaazri();
-      setData(updated);
-      router.push('/haazri-done');
-    } catch {
-      Alert.alert(t.haazri.markFailed);
-    } finally {
-      setMarking(false);
-    }
+  const toggleReminder = async (enabled: boolean) => {
+    const time = user?.reminderTime ?? '09:00';
+    await saveProfile({ reminderEnabled: enabled }).catch(() => {});
+    await applyReminder(enabled, time).catch(() => {});
   };
 
   return (
@@ -67,80 +60,99 @@ export default function HaazriScreen() {
         <HeroBackground midStop={0.7} style={[styles.hero, { paddingTop: insets.top + 14 }]}>
           <Sunburst size={400} style={{ left: -110, top: -90 }} />
           <ConfettiLayer pieces={CONFETTI} width={width} height={220} style={{ top: insets.top }} />
-
-          <View style={styles.topBar}>
-            <View style={styles.titleRow}>
-              <GlassIconButton label={t.a11y.back} onPress={() => router.navigate('/')}>
-                <BackIcon size={22} color="#FFFFFF" />
-              </GlassIconButton>
-              <Text style={styles.title} accessibilityRole="header">
-                {t.haazri.title}
-              </Text>
-            </View>
-            <GlassChip icon={<ShieldIcon />} label={skipsLeft > 0 ? t.haazri.freeSkips(skipsLeft) : t.haazri.noSkips} />
-          </View>
-
-          <View style={styles.status}>
-            <Medal day={Math.min(day, progress.haazriDays)} label={t.haazri.day} />
-            <View style={styles.statusText}>
-              <Text style={styles.moreDays}>{qualified ? t.haazri.qualified : t.haazri.moreDays(Math.max(0, left))}</Text>
-              <Text style={styles.unlocks}>{qualified ? t.haazri.qualifiedBody(progress.title) : t.haazri.unlocks(progress.title)}</Text>
-            </View>
-          </View>
+          <Text style={styles.title} accessibilityRole="header">
+            {t.haazri.title}
+          </Text>
+          {g ? <HeroStatus giveaway={g} /> : null}
         </HeroBackground>
 
         <View style={styles.sheet}>
-          {data.length > 1 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcher}>
-              {data.map((h) => {
-                const active = h.giveawayId === progress.giveawayId;
-                return (
-                  <Pressable
-                    key={h.giveawayId}
-                    onPress={() => setSelectedId(h.giveawayId)}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: active }}
-                    style={[styles.switchCard, active && styles.switchCardActive]}>
-                    <Text style={[styles.switchText, active && styles.switchTextActive]}>{t.haazri.switcherLabel(h.title, h.daysMarked, h.haazriDays)}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          <HaazriPath progress={progress} />
-
-          {progress.markedToday || qualified ? (
-            <Button3D variant="done" label={t.home.haazriDoneToday} icon={<CheckIcon size={24} color={colors.successText} />} height={58} disabled />
+          {!g ? (
+            <Text style={styles.empty}>{t.haazri.empty}</Text>
           ) : (
-            <Button3D
-              variant="gold"
-              height={58}
-              label={t.home.markHaazri}
-              textStyle={styles.markText}
-              icon={<CheckIcon size={24} color={colors.goldInk} />}
-              onPress={onMark}
-              disabled={marking}
-            />
-          )}
-          <View style={styles.openTill}>
-            <ClockIcon size={16} color={colors.textMuted} />
-            <Text style={styles.openTillText}>{progress.markedToday ? t.haazri.doneToday : t.haazri.openTill}</Text>
-          </View>
+            <>
+              {list.length > 1 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcher}>
+                  {list.map((x) => {
+                    const active = x.id === g.id;
+                    const doneToday = x.progress?.doneToday;
+                    return (
+                      <Pressable
+                        key={x.id}
+                        onPress={() => setSelectedId(x.id)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: active }}
+                        style={[styles.switchCard, active && styles.switchCardActive]}>
+                        {doneToday ? <CheckIcon size={14} color={colors.success} strokeWidth={3} /> : null}
+                        <Text style={[styles.switchText, active && styles.switchTextActive]} numberOfLines={1}>
+                          {t.haazri.switcherLabel(x.title, x.progress?.daysCompleted ?? 0, x.haazriDays)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
 
-          <CheckboxRow title={t.haazri.remind} value={prefs.haazriReminder} onChange={(v) => setPref('haazriReminder', v)} />
+              <HaazriPath total={g.haazriDays} done={g.progress?.daysCompleted ?? 0} doneToday={g.progress?.doneToday ?? false} prizeTitle={g.title} />
+
+              <MainAction giveaway={g} onDoTask={() => setTaskFor(g)} onOpen={() => router.push(`/giveaway/${g.id}`)} />
+              <View style={styles.lastDate}>
+                <ClockIcon size={16} color={colors.textMuted} />
+                <Text style={styles.lastDateText}>{g.progress?.doneToday ? t.haazri.doneToday : t.haazri.lastDate(formatDay(g.lastDate))}</Text>
+              </View>
+            </>
+          )}
+
+          {user ? <CheckboxRow title={t.haazri.remind(formatTime(user.reminderTime))} value={user.reminderEnabled} onChange={toggleReminder} /> : null}
         </View>
       </ScrollView>
+
+      <TaskSheet
+        giveaway={taskFor}
+        onClose={() => setTaskFor(null)}
+        onDone={(x) => {
+          setTaskFor(null);
+          router.push({ pathname: '/haazri-done', params: { id: x.id } });
+        }}
+      />
     </View>
   );
+}
+
+function HeroStatus({ giveaway: g }: { giveaway: Giveaway }) {
+  const p = g.progress;
+  const action = giveawayAction(g);
+  const left = Math.max(0, g.haazriDays - (p?.daysCompleted ?? 0));
+  const [headline, body] =
+    action === 'inDraw'
+      ? [t.haazri.qualified, t.haazri.qualifiedBody(g.title)]
+      : action === 'tooLate'
+        ? [t.haazri.tooLate, t.haazri.tooLateBody(p?.daysLeft ?? 0, left)]
+        : [t.haazri.moreDays(left), t.haazri.unlocks(g.title)];
+  return (
+    <View style={styles.status}>
+      <Medal day={Math.min(p?.currentDay ?? 1, g.haazriDays)} label={t.haazri.day} />
+      <View style={styles.statusText}>
+        <Text style={styles.moreDays}>{headline}</Text>
+        <Text style={styles.unlocks}>{body}</Text>
+      </View>
+    </View>
+  );
+}
+
+function MainAction({ giveaway, onDoTask, onOpen }: { giveaway: Giveaway; onDoTask: () => void; onOpen: () => void }) {
+  const action = giveawayAction(giveaway);
+  if (action === 'start' || action === 'doToday') {
+    return <Button3D variant="gold" height={58} label={t.home.doHaazri} textStyle={styles.mainText} icon={<CheckIcon size={24} color={colors.goldInk} />} onPress={onDoTask} />;
+  }
+  const label = action === 'inDraw' ? t.home.inTheDraw : action === 'tooLate' ? t.haazri.tooLate : t.home.haazriDoneToday;
+  return <Button3D variant="done" height={58} label={label} icon={action === 'tooLate' ? undefined : <CheckIcon size={24} color={colors.successText} />} onPress={onOpen} />;
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { flexGrow: 1, backgroundColor: colors.surface },
   hero: { paddingHorizontal: 16, paddingBottom: 52 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 30, color: colors.onDark, ...headingShadow },
   status: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 18 },
   statusText: { flex: 1, gap: 2 },
@@ -158,12 +170,24 @@ const styles = StyleSheet.create({
     gap: 14,
     boxShadow: '0px -6px 20px rgba(11,26,102,0.12)',
   },
+  empty: { fontFamily: fonts.body, fontSize: 16, lineHeight: 22, color: colors.textMuted, textAlign: 'center', paddingVertical: 24 },
   switcher: { gap: 8 },
-  switchCard: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 14, backgroundColor: colors.bg, borderWidth: 2, borderColor: colors.border },
+  switchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    maxWidth: 240,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: colors.bg,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
   switchCardActive: { backgroundColor: colors.primaryTint, borderColor: colors.primary },
-  switchText: { fontFamily: fonts.bodySemiBold, fontSize: 15, color: colors.textMuted },
+  switchText: { flexShrink: 1, fontFamily: fonts.bodySemiBold, fontSize: 15, color: colors.textMuted },
   switchTextActive: { fontFamily: fonts.bodyBold, color: colors.primaryEdge },
-  markText: { fontSize: 21 },
-  openTill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: -4 },
-  openTillText: { fontFamily: fonts.body, fontSize: 14, color: colors.textMuted },
+  mainText: { fontSize: 21 },
+  lastDate: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: -4 },
+  lastDateText: { fontFamily: fonts.body, fontSize: 14, color: colors.textMuted },
 });

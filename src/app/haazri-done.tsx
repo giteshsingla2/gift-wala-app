@@ -1,10 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getHaazri, getWinners, placeholderTotals } from '@/api';
+import { getGiveaway, getHome } from '@/api';
 import { ConfettiLayer, GiftGlyph, Spotlights, type ConfettiPiece } from '@/components/ui/art';
 import { Button3D } from '@/components/ui/button-3d';
 import { ConfettiBurst } from '@/components/ui/confetti-burst';
@@ -36,19 +36,22 @@ const CONFETTI: ConfettiPiece[] = [
   { kind: 'sparkle', x: 40, y: 262, color: '#FFFFFF', scale: 0.6 },
 ];
 
-// Shown right after a successful mark, with a short confetti burst.
+// Shown right after a day's haazri is counted, with a short confetti burst.
 export default function HaazriDoneScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { data, error, refresh } = useApi(async () => {
-    const [haazri, winners] = await Promise.all([getHaazri(), getWinners('yesterday')]);
-    return { progress: haazri[0], winners };
-  });
+    const [detail, home] = await Promise.all([getGiveaway(id), getHome()]);
+    return { giveaway: detail.giveaway, home };
+  }, [id]);
 
-  if (!data?.progress) return <ScreenState error={error} onRetry={refresh} />;
-  const { progress, winners } = data;
-  const qualified = progress.daysMarked >= progress.haazriDays;
+  if (!data) return <ScreenState error={error} onRetry={refresh} />;
+  const { giveaway: g, home } = data;
+  const done = g.progress?.daysCompleted ?? 0;
+  const qualified = g.progress?.finished ?? false;
+  const showWinners = home.pinned.length > 0 || home.yesterdayWinnersCount > 0;
 
   return (
     <View style={styles.screen}>
@@ -75,27 +78,30 @@ export default function HaazriDoneScreen() {
           <Text style={styles.title} accessibilityRole="header">
             {qualified ? t.haazriDone.qualifiedTitle : t.haazriDone.title}
           </Text>
-          <Text style={styles.body}>{qualified ? t.haazriDone.qualifiedBody(progress.title) : t.haazriDone.body(progress.daysMarked)}</Text>
-          <View style={styles.strip} accessible accessibilityLabel={`${progress.daysMarked} / ${progress.haazriDays}`}>
-            <View style={styles.dots}>
-              {Array.from({ length: progress.haazriDays }, (_, i) => (
-                <View key={i} style={[styles.dot, i < progress.daysMarked ? styles.dotDone : styles.dotTodo]} />
-              ))}
+          <Text style={styles.body}>{qualified ? t.haazriDone.qualifiedBody(g.title) : t.haazriDone.body(done, g.haazriDays)}</Text>
+          {g.haazriDays > 1 ? (
+            <View style={styles.strip} accessible accessibilityLabel={`${done} / ${g.haazriDays}`}>
+              <View style={styles.dots}>
+                {Array.from({ length: g.haazriDays }, (_, i) => (
+                  <View key={i} style={[styles.dot, i < done ? styles.dotDone : styles.dotTodo]} />
+                ))}
+              </View>
+              <Text style={styles.stripText}>
+                {done}/{g.haazriDays}
+              </Text>
             </View>
-            <Text style={styles.stripText}>
-              {progress.daysMarked}/{progress.haazriDays}
-            </Text>
-          </View>
+          ) : null}
         </View>
 
-        <RibbonPanel title={t.home.luckyWinners} style={styles.panel} openBottom>
-          <WinnerCard winner={winners.spotlight} />
-          {winners.winners.slice(0, 1).map((w) => (
-            <WinnerCard key={w.id} winner={w} />
-          ))}
-          <MoreWinnersDivider />
-          <WinnerSummaryRow count={placeholderTotals.peopleWonUpi} label={t.haazriDone.peopleWon(placeholderTotals.peopleWonUpiPrize)} art="coinStack" />
-        </RibbonPanel>
+        {showWinners ? (
+          <RibbonPanel title={t.home.luckyWinners} style={styles.panel} openBottom>
+            {home.pinned.map((w) => (
+              <WinnerCard key={w.id} winner={w} />
+            ))}
+            {home.pinned.length > 0 ? <MoreWinnersDivider /> : null}
+            <WinnerSummaryRow count={home.yesterdayWinnersCount} label={t.home.wonYesterday} onPress={() => router.navigate('/winners')} />
+          </RibbonPanel>
+        ) : null}
       </ScrollView>
 
       <LinearGradient colors={['rgba(238,242,255,0)', colors.bgAlt]} locations={[0, 0.38]} style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
@@ -107,7 +113,7 @@ export default function HaazriDoneScreen() {
           faceStyle={styles.shareFace}
           onPress={() => Share.share({ message: t.haazriDone.shareMessage(t.appName) })}
         />
-        <Button3D variant="gold" label={t.haazriDone.seeGiveaways} textStyle={styles.seeText} style={styles.see} onPress={() => router.dismissTo('/')} />
+        <Button3D variant="gold" label={t.haazriDone.seeGiveaways} textStyle={styles.seeText} style={styles.see} onPress={() => router.dismissTo('/giveaways')} />
       </LinearGradient>
 
       <ConfettiBurst />
@@ -148,7 +154,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
     color: colors.onDark,
   },
-  headline: { alignItems: 'center', paddingTop: 18, paddingHorizontal: 24, gap: 6 },
+  headline: { alignItems: 'center', paddingTop: 18, paddingHorizontal: 24, paddingBottom: 22, gap: 6 },
   title: {
     fontFamily: fonts.display,
     fontSize: 34,
@@ -177,7 +183,7 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: colors.coinMid, boxShadow: `inset 0px -2px 0px ${colors.goldEdge}` },
   dotTodo: { backgroundColor: 'rgba(255,255,255,0.22)' },
   stripText: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.goldOnDark },
-  panel: { flexGrow: 1, marginTop: 22, marginHorizontal: 14 },
+  panel: { flexGrow: 1, marginHorizontal: 14 },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, paddingTop: 36, paddingHorizontal: 20 },
   share: { width: 56 },
   shareFace: { paddingHorizontal: 0 },

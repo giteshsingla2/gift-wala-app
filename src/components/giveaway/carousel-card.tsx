@@ -1,53 +1,42 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button3D } from '@/components/ui/button-3d';
 import { colors, fonts, shadows, type as typo } from '@/constants/theme';
 import { t } from '@/i18n';
+import { formatDay } from '@/lib/format';
 import type { Giveaway } from '@/types';
-import { PrizeTile } from './prize-tile';
+import { CardAction } from './action-button';
+import { PrizeTile, tileColorsOf } from './prize-tile';
 
-const AVATAR_COLORS = ['#C9D5FF', '#FFD9A0', '#B6EBCF', '#FFC9D6'];
-
-// Home carousel card: 172 wide, prize tile on top, full-width Enter button.
+// Home carousel card: 172 wide, prize tile on top, the user's progress and today's action.
 export function GiveawayCarouselCard({ giveaway, onPress }: { giveaway: Giveaway; onPress: () => void }) {
-  const offset = giveaway.sortOrder;
+  const done = giveaway.progress?.daysCompleted ?? 0;
   return (
-    <View style={styles.card}>
-      <PrizeTile giveaway={giveaway} size={172} height={112} imageSize={96} radius={0} />
-      <View style={styles.body}>
-        <Text style={typo.cardTitle} numberOfLines={1}>
-          {giveaway.title}
-        </Text>
-        <View style={styles.winners}>
-          <View style={styles.avatars}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={[styles.avatar, i > 0 && styles.avatarOverlap, { backgroundColor: AVATAR_COLORS[(i + offset) % AVATAR_COLORS.length] }]} />
-            ))}
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={giveaway.title} style={styles.card}>
+      {({ pressed }) => (
+        <>
+          <PrizeTile colors={tileColorsOf(giveaway)} imageUrl={giveaway.imageUrl} size={172} height={112} imageSize={100} radius={0} />
+          <View style={styles.body}>
+            <Text style={typo.cardTitle} numberOfLines={1}>
+              {giveaway.title}
+            </Text>
+            <Text style={styles.meta} numberOfLines={1}>
+              {giveaway.haazriDays > 1 ? t.card.dayOf(done, giveaway.haazriDays) : t.common.winners(giveaway.winnersCount)}
+              {t.common.dot}
+              {formatDay(giveaway.lastDate)}
+            </Text>
+            <View style={styles.action}>
+              <CardAction giveaway={giveaway} pressed={pressed} full />
+            </View>
           </View>
-          <Text style={styles.winnersText}>{t.common.winnersToday(giveaway.winnersCount)}</Text>
-        </View>
-        <Button3D
-          variant={giveaway.entered ? 'done' : 'blue'}
-          height={44}
-          label={giveaway.entered ? t.home.entered : t.home.enterFree}
-          textStyle={giveaway.entered ? styles.enteredText : undefined}
-          onPress={onPress}
-          accessibilityLabel={`${giveaway.entered ? t.home.entered : t.home.enterFree}: ${giveaway.title}`}
-          style={styles.button}
-        />
-      </View>
-    </View>
+        </>
+      )}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: { width: 172, backgroundColor: colors.surface, borderRadius: 22, boxShadow: shadows.giveawayCard, overflow: 'hidden' },
-  body: { paddingTop: 12, paddingHorizontal: 14, paddingBottom: 14, gap: 6 },
-  winners: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  avatars: { flexDirection: 'row' },
-  avatar: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#FFFFFF' },
-  avatarOverlap: { marginLeft: -7 },
-  winnersText: { flex: 1, fontFamily: fonts.body, fontSize: 13, lineHeight: 17, color: colors.textMuted },
-  button: { marginTop: 4 },
-  enteredText: { fontFamily: fonts.bodyBold, fontSize: 16 },
+  body: { paddingTop: 12, paddingHorizontal: 14, paddingBottom: 14, gap: 4 },
+  meta: { fontFamily: fonts.body, fontSize: 13, lineHeight: 17, color: colors.textMuted },
+  action: { marginTop: 6 },
 });

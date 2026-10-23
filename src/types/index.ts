@@ -1,94 +1,115 @@
-// Mirrors the API / database model in the design handoff.
+// Shapes returned by the Gift Wala server (see server/src/app/api/v1 and docs/BACKEND.md).
 
-export type GiveawayCategory = 'recharge' | 'cash' | 'data' | 'product' | 'festival' | 'mega';
 export type TagStyle = 'daily' | 'weekly' | 'festival';
-export type EntryType = 'task' | 'haazri';
+export type TaskType = 'website' | 'share' | 'ad';
 
-// Placeholder drawings used until the server sends a real product image.
-export type PrizeArt =
-  | 'recharge'
-  | 'cash'
-  | 'data'
-  | 'weeklyRecharge'
-  | 'earbuds'
-  | 'watch'
-  | 'diya'
-  | 'iphone'
-  | 'iphoneBlue'
-  | 'coins'
-  | 'coinStack';
+export type Task = {
+  day: number;
+  type: TaskType;
+  url: string | null;
+  minSeconds: number | null;
+  shareCount: number | null;
+  shareMessage: string | null;
+};
+
+/** The logged-in user's standing in one giveaway. */
+export type Progress = {
+  daysCompleted: number;
+  doneToday: boolean;
+  finished: boolean;
+  /** Day number the user does today (or just did). */
+  currentDay: number;
+  /** False when too few days are left before the last date to finish. */
+  canFinish: boolean;
+  daysLeft: number;
+};
 
 export type Giveaway = {
   id: string;
   title: string;
   subtitle: string;
-  imageUrl?: string;
-  art: PrizeArt;
+  imageUrl: string | null;
   tileColorFrom: string;
   tileColorTo: string;
-  category: GiveawayCategory;
+  categoryId: string | null;
   tag: string;
   tagStyle: TagStyle;
   winnersCount: number;
-  startsAt: string;
-  endsAt: string;
-  resultAt: string;
-  entryType: EntryType;
-  taskUrl?: string;
-  haazriDays?: number;
-  freeSkips?: number;
-  featured: boolean;
-  sortOrder: number;
-  rulesText: string;
-  entered: boolean;
-};
-
-export type HaazriProgress = {
-  giveawayId: string;
-  prizeShortName: string;
-  title: string;
+  prizeValue: number;
   haazriDays: number;
-  daysMarked: number;
-  freeSkips: number;
-  skipsUsed: number;
-  markedToday: boolean;
-  closesAt: string;
+  startDate: string;
+  lastDate: string;
+  resultAt: string | null;
+  featured: boolean;
+  rulesText: string;
+  progress: Progress | null;
+  todayTask?: Task | null;
+  running?: boolean;
 };
 
 export type Winner = {
   id: string;
-  firstName: string;
-  lastName?: string;
+  name: string;
   town: string;
-  photoUrl?: string;
+  photoUrl: string | null;
+  videoUrl: string | null;
   prizeLabel: string;
-  art: PrizeArt;
+  prizeValue: number;
+  prizeImageUrl: string | null;
+  tileColorFrom: string;
+  tileColorTo: string;
   wonAt: string;
-  drawLabel?: string;
-  videoUrl?: string;
 };
 
-export type WinnerSummary = {
-  count: number;
-  prizeLabel?: string;
-  art?: PrizeArt;
+export type Sections = {
+  megaPoster: boolean;
+  ticker: boolean;
+  today: boolean;
+  luckyWinners: boolean;
+  whatsapp: boolean;
+};
+
+export type AppConfig = {
+  whatsappChannelUrl: string;
+  minAppVersion: string;
+  sections: Sections;
+  categories: { id: string; name: string }[];
+};
+
+export type User = {
+  id: number;
+  phone: string;
+  name: string;
+  city: string;
+  state: string;
+  pincode: string;
+  reminderEnabled: boolean;
+  reminderTime: string;
 };
 
 export type HomeData = {
-  featured: Giveaway;
-  haazri: HaazriProgress;
-  today: Giveaway[];
-  megaWinner: Winner;
-  recentWinners: Winner[];
+  featured: Giveaway | null;
+  giveaways: Giveaway[];
+  ticker: Winner[];
+  pinned: Winner[];
+  spotlight: Winner | null;
   yesterdayWinnersCount: number;
-  walletTotal: number;
-  unreadNotifications: number;
+  wallet: number;
+  sections: Sections;
+  whatsappChannelUrl: string;
+};
+
+export type GiveawaysData = {
+  featured: Giveaway | null;
+  giveaways: Giveaway[];
+  liveCount: number;
+  doneTodayCount: number;
 };
 
 export type WinnersRange = 'yesterday' | 'week' | 'mega';
 
 export type WinnersData = {
-  spotlight: Winner;
+  spotlight: Winner | null;
   winners: Winner[];
   total: number;
 };

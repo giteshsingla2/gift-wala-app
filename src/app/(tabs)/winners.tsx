@@ -18,7 +18,7 @@ import { t } from '@/i18n';
 import type { WinnersRange } from '@/types';
 
 const RANGES: WinnersRange[] = ['yesterday', 'week', 'mega'];
-const LIST_TITLE = { yesterday: t.winners.dailyWinners, week: t.winners.weekWinners, mega: t.winners.megaWinners } as const;
+const LIST_TITLE = { yesterday: t.winners.yesterdayWinners, week: t.winners.weekWinners, mega: t.winners.megaWinners } as const;
 
 const CONFETTI: ConfettiPiece[] = [
   { kind: 'rect', x: 44, y: 150, color: '#FFC233', rotate: 25 },
@@ -38,7 +38,7 @@ export default function WinnersScreen() {
   const { width } = useWindowDimensions();
   const [range, setRange] = useState<WinnersRange>('yesterday');
   const { data, error, refreshing, refresh } = useApi(() => getWinners(range), [range]);
-  const openVideo = (url?: string) => url && WebBrowser.openBrowserAsync(url);
+  const openVideo = (url: string | null) => url && WebBrowser.openBrowserAsync(url);
 
   return (
     <View style={styles.screen}>
@@ -67,9 +67,9 @@ export default function WinnersScreen() {
             })}
           </View>
 
-          {data ? (
+          {data?.spotlight ? (
             <View style={styles.spotlight}>
-              <WinnerSpotlight winner={data.spotlight} onWatchVideo={() => openVideo(data.spotlight.videoUrl)} />
+              <WinnerSpotlight winner={data.spotlight} onWatchVideo={() => openVideo(data.spotlight!.videoUrl)} />
             </View>
           ) : null}
         </HeroBackground>
@@ -86,8 +86,9 @@ export default function WinnersScreen() {
               </Text>
               <Text style={styles.total}>{t.winners.total(data.total)}</Text>
             </View>
+            {data.winners.length === 0 ? <Text style={styles.empty}>{t.winners.empty}</Text> : null}
             {data.winners.map((w) => (
-              <WinnerCard key={w.id} winner={w} compact />
+              <WinnerCard key={w.id} winner={w} compact onWatchVideo={() => openVideo(w.videoUrl)} />
             ))}
           </View>
         )}
@@ -130,4 +131,5 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
   total: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.onDark },
+  empty: { fontFamily: fonts.body, fontSize: 15, lineHeight: 21, color: colors.textMuted, textAlign: 'center', backgroundColor: colors.surface, borderRadius: 20, padding: 20 },
 });

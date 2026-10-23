@@ -8,18 +8,13 @@ import { getGiveaways } from '@/api';
 import { GiveawayListCard } from '@/components/giveaway/list-card';
 import { MegaDrawCard } from '@/components/giveaway/mega-card';
 import { ConfettiLayer, Sunburst, type ConfettiPiece } from '@/components/ui/art';
-import { CheckboxRow } from '@/components/ui/checkbox-row';
 import { HeroBackground } from '@/components/ui/hero';
 import { ScreenState } from '@/components/ui/screen-state';
 import { LiveChip } from '@/components/ui/tag';
 import { colors, fonts, headingShadow } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { t } from '@/i18n';
-import { setPref, usePrefs } from '@/store/preferences';
-import type { GiveawayCategory } from '@/types';
-
-type Filter = 'all' | Exclude<GiveawayCategory, 'mega'>;
-const FILTERS: Filter[] = ['all', 'recharge', 'cash', 'data', 'product', 'festival'];
+import { refreshConfig, useSession } from '@/store/session';
 
 const CONFETTI: ConfettiPiece[] = [
   { kind: 'rect', x: 250, y: 24, color: '#FFC233', rotate: 25, w: 7, h: 13 },
@@ -32,9 +27,14 @@ export default function GiveawaysScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const prefs = usePrefs();
-  const [filter, setFilter] = useState<Filter>('all');
-  const { data, error, refreshing, refresh } = useApi(() => getGiveaways(filter === 'all' ? undefined : filter), [filter]);
+  const { config } = useSession();
+  const [category, setCategory] = useState<string>();
+  const { data, error, refreshing, refresh } = useApi(async () => {
+    const [list] = await Promise.all([getGiveaways(category), refreshConfig().catch(() => null)]);
+    return list;
+  }, [category]);
+  const categories = config?.categories ?? [];
+  const chips = [{ id: undefined, name: t.giveaways.all }, ...categories];
 
   return (
     <View style={styles.screen}>
@@ -54,21 +54,23 @@ export default function GiveawaysScreen() {
             </View>
             {data ? <LiveChip label={t.giveaways.liveCount(data.liveCount)} large /> : null}
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-            {FILTERS.map((f) => {
-              const active = f === filter;
-              return (
-                <Pressable
-                  key={f}
-                  onPress={() => setFilter(f)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  style={[styles.filter, active ? styles.filterActive : styles.filterIdle]}>
-                  <Text style={[styles.filterText, active && styles.filterTextActive]}>{t.giveaways.filters[f]}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          {categories.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+              {chips.map((c) => {
+                const active = c.id === category;
+                return (
+                  <Pressable
+                    key={c.id ?? 'all'}
+                    onPress={() => setCategory(c.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    style={[styles.filter, active ? styles.filterActive : styles.filterIdle]}>
+                    <Text style={[styles.filterText, active && styles.filterTextActive]}>{c.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
         </HeroBackground>
 
         {!data ? (
@@ -77,9 +79,9 @@ export default function GiveawaysScreen() {
           </View>
         ) : (
           <>
-            {data.featured && filter === 'all' ? (
+            {data.featured && !category ? (
               <View style={styles.mega}>
-                <MegaDrawCard giveaway={data.featured} progress={data.featuredHaazri} onContinue={() => router.navigate('/haazri')} />
+                <MegaDrawCard giveaway={data.featured} onPress={() => router.push(`/giveaway/${data.featured!.id}`)} />
               </View>
             ) : null}
 
@@ -88,19 +90,12 @@ export default function GiveawaysScreen() {
                 <Text style={styles.h2} accessibilityRole="header">
                   {t.giveaways.runningNow}
                 </Text>
-                <Text style={styles.count}>{t.giveaways.enteredCount(data.enteredCount, data.totalCount)}</Text>
+                <Text style={styles.count}>{t.giveaways.doneTodayCount(data.doneTodayCount, data.liveCount)}</Text>
               </View>
-              {data.running.length === 0 ? <Text style={styles.empty}>{t.giveaways.empty}</Text> : null}
-              {data.running.map((g) => (
+              {data.giveaways.length === 0 ? <Text style={styles.empty}>{t.giveaways.empty}</Text> : null}
+              {data.giveaways.map((g) => (
                 <GiveawayListCard key={g.id} giveaway={g} onPress={() => router.push(`/giveaway/${g.id}`)} />
               ))}
-              <CheckboxRow
-                dashed
-                title={t.giveaways.alertsTitle}
-                body={t.giveaways.alertsBody}
-                value={prefs.giveawayAlerts}
-                onChange={(v) => setPref('giveawayAlerts', v)}
-              />
             </View>
           </>
         )}

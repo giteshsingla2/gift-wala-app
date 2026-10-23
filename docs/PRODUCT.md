@@ -16,11 +16,11 @@ users. Daily users drive ad revenue, which pays for more and bigger prizes.
 1. See a giveaway post on Facebook/Instagram.
 2. Land on the website, register, enter a giveaway.
 3. The entry-confirmed page asks them to download the app.
-4. They install the app and **their entry is already there**.
-5. They come back daily through the app.
+4. They install the app and log in with their phone number.
+5. They come back daily through the app to do haazri.
 
-The website is always the first step. The app is for people who have already
-entered at least once — onboarding must link the app to that existing entry.
+The website is usually the first step, but the app has its own server and
+database (nothing is shared with the website). See `docs/BACKEND.md`.
 
 ## Giveaway types
 
@@ -30,16 +30,19 @@ entered at least once — onboarding must link the app to that existing entry.
 | Weekly | Earbuds, smartwatches, speakers               | Once a week          |
 | Mega   | iPhone, bike — often festival-themed          | Usually once a month |
 
-- One entry per giveaway per day.
-- Weekly and mega giveaways have **tiers by days entered**. Example (iPhone):
-  10 days → iPhone draw, 7 days → earbuds draw, 3 days → Rs 49 recharge draw.
+- Every giveaway is entered through **haazri**: complete one task per day for
+  the giveaway's number of days (1 for a daily recharge, 8, 10...). Finishing
+  every day puts the user in the draw. One prize per giveaway, at the end.
+- Each day's task is set by the admin: open a website link, share with N
+  friends, or watch a reward ad.
 - Missing a day never resets progress; it only means fewer days counted.
+  There are no skips.
 
 ## Entry flow
 
-Open app → browse running giveaways → open one (prize, draw date, progress,
-past winners) → tap Enter → complete a short entry on the website → return to
-the app → "You're in" confirmation with updated progress.
+Open app → browse running giveaways → open one (prize, last date, progress,
+past winners) → do today's task → back in the app, the day is counted and the
+progress updates. After the last day the user is in the draw.
 
 ## What the app shows
 
@@ -48,9 +51,12 @@ the app → "You're in" confirmation with updated progress.
 - **Giveaway details:** prize photos, draw date, how to win, user's progress,
   past winners.
 - **Winners:** photo, first name, city, prize, delivery videos. Never phone numbers.
-- **My entries:** the user's entries and results, won or not.
-- **Claim & delivery:** for winners, claim the prize and track delivery.
-- **Info pages:** rules, how prizes are funded, staying safe from fraud, help.
+- **Profile:** name, phone, city, state, pincode, total winnings, daily
+  reminder time.
+- **Winners are contacted by the team directly** for now; an in-app winner
+  screen comes later.
+- **Info pages (built into the app):** rules, how prizes are funded, staying
+  safe from fraud, help.
 
 ## Audience
 

@@ -3,15 +3,11 @@ import Svg, { Circle, Defs, Rect, Text } from 'react-native-svg';
 
 import { CoinG, CoinGradient, SvgScope, decorative, useSvgId } from '@/components/ui/art';
 import { colors, fonts } from '@/constants/theme';
-import type { HaazriProgress } from '@/types';
-
 // Compact haazri track for the Home card: gold coins for done days, a ringed node for today,
 // grey numbers for later days, and the prize badge at the end.
-export function CoinTrack({ progress }: { progress: HaazriProgress }) {
+export function CoinTrack({ total: n, done, doneToday }: { total: number; done: number; doneToday: boolean }) {
   const sid = useSvgId();
-  const n = progress.haazriDays;
-  const done = progress.daysMarked;
-  const todayIndex = progress.markedToday ? -1 : done;
+  const todayIndex = doneToday ? -1 : done;
   const step = (300 - 18) / Math.max(1, n - 2);
   const xs = Array.from({ length: n - 1 }, (_, i) => 18 + i * step);
   const fillTo = done === 0 ? 18 : (xs[Math.min(done, n - 2)] ?? 300);

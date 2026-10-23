@@ -4,8 +4,20 @@
     {
       "name": "web",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "export PATH=$HOME/.nvm/versions/node/v22.23.4/bin:$PATH && npx expo start --web --port 8081"],
+      "runtimeArgs": [
+        "-c",
+        "export PATH=$HOME/.nvm/versions/node/v22.23.4/bin:$PATH && npx expo start --web --port 8081"
+      ],
       "port": 8081
+    },
+    {
+      "name": "server",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=$HOME/.nvm/versions/node/v22.23.4/bin:$PATH && cd server && npx next dev --port 3000"
+      ],
+      "port": 3000
     }
   ]
 }

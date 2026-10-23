@@ -1,28 +1,23 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ChevronRightIcon, PlayIcon } from '@/components/ui/icons';
-import { PrizeArt, PrizeImage } from '@/components/ui/prize-art';
+import { PrizeImage } from '@/components/ui/prize-image';
 import { colors, fonts, shadows } from '@/constants/theme';
 import { t } from '@/i18n';
-import { formatWonAt, fullName } from '@/lib/format';
-import type { PrizeArt as PrizeArtKey, Winner } from '@/types';
+import { formatWonAt } from '@/lib/format';
+import type { Winner } from '@/types';
 
 // "₹20 recharge won by / Pooja Yadav / Azamgarh · Yesterday" with the prize on the right.
 // We never show a winner's phone number, masked or not.
 export function WinnerCard({ winner, compact, onWatchVideo }: { winner: Winner; compact?: boolean; onWatchVideo?: () => void }) {
-  const when = winner.drawLabel ? t.dates.draw(winner.drawLabel) : formatWonAt(winner.wonAt);
-  const imageW = compact ? 64 : 92;
-  const imageH = compact ? 62 : winner.art === 'iphoneBlue' ? 104 : 80;
+  const meta = [winner.town, formatWonAt(winner.wonAt)].filter(Boolean).join(t.common.dot);
+  const size = compact ? 64 : 88;
   return (
     <View style={[styles.card, compact && styles.compact]}>
       <View style={styles.text}>
         <Text style={[styles.label, compact && styles.labelCompact]}>{t.home.wonBy(winner.prizeLabel)}</Text>
-        <Text style={[styles.name, compact && styles.nameCompact]}>{fullName(winner.firstName, winner.lastName)}</Text>
-        <Text style={[styles.meta, compact && styles.metaCompact]}>
-          {winner.town}
-          {t.common.dot}
-          {when}
-        </Text>
+        <Text style={[styles.name, compact && styles.nameCompact]}>{winner.name}</Text>
+        <Text style={[styles.meta, compact && styles.metaCompact]}>{meta}</Text>
         {winner.videoUrl && onWatchVideo ? (
           <Pressable onPress={onWatchVideo} accessibilityRole="button" style={({ pressed }) => [styles.video, pressed && { opacity: 0.7 }]}>
             <PlayIcon size={16} />
@@ -30,26 +25,20 @@ export function WinnerCard({ winner, compact, onWatchVideo }: { winner: Winner; 
           </Pressable>
         ) : null}
       </View>
-      <PrizeImage art={winner.art} width={imageW} height={imageH} />
+      <PrizeImage uri={winner.prizeImageUrl} width={size} />
     </View>
   );
 }
 
-// "180 people / won daily rewards yesterday" summary row.
-export function WinnerSummaryRow({ count, label, art, onPress }: { count: number; label: string; art?: PrizeArtKey; onPress?: () => void }) {
-  const content = (
-    <>
+// "180 people / won prizes yesterday" summary row.
+export function WinnerSummaryRow({ count, label, onPress }: { count: number; label: string; onPress?: () => void }) {
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} style={({ pressed }) => [styles.card, styles.summary, pressed && { opacity: 0.85 }]}>
       <View style={styles.text}>
         <Text style={styles.summaryCount}>{t.home.peopleCount(count)}</Text>
         <Text style={styles.summaryLabel}>{label}</Text>
       </View>
-      {art ? <PrizeArt art={art} width={64} height={56} /> : <ChevronRightIcon size={24} color={colors.primary} />}
-    </>
-  );
-  if (!onPress) return <View style={[styles.card, styles.summary]}>{content}</View>;
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.card, styles.summary, pressed && { opacity: 0.85 }]}>
-      {content}
+      {onPress ? <ChevronRightIcon size={24} color={colors.primary} /> : null}
     </Pressable>
   );
 }
