@@ -115,11 +115,22 @@ export default async function EditGiveawayPage({ params, searchParams }: PagePro
       <GiveawayForm initial={values} categories={categories.map((c) => ({ id: c.id, name: c.name }))} />
 
       <Card title="Delete giveaway" className="mt-6">
-        <form action={deleteGiveaway} className="flex flex-wrap items-center gap-3">
-          <input type="hidden" name="id" value={id} />
-          <p className="text-sm text-muted">Deletes the giveaway, its day plan and everyone’s progress. Giveaways with winners can’t be deleted.</p>
-          <ConfirmButton message={`Delete “${values.title}” and everyone's progress in it? This can't be undone.`}>Delete</ConfirmButton>
-        </form>
+        {winners.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-muted">
+              This giveaway has {winners.length} winner{winners.length === 1 ? "" : "s"}, so it’s kept as a record. To take it out of the app, set its status to Ended.
+            </p>
+            <button type="button" disabled className={buttonClass("danger")}>
+              Delete
+            </button>
+          </div>
+        ) : (
+          <form action={deleteGiveaway} className="flex flex-wrap items-center gap-3">
+            <input type="hidden" name="id" value={id} />
+            <p className="text-sm text-muted">Deletes the giveaway, its day plan and everyone’s progress. This can’t be undone.</p>
+            <ConfirmButton message={`Delete “${values.title}”?`}>Delete</ConfirmButton>
+          </form>
+        )}
       </Card>
     </>
   );

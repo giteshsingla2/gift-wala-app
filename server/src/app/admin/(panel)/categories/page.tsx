@@ -61,10 +61,19 @@ export default async function CategoriesPage({ searchParams }: PageProps<"/admin
                 <button className={buttonClass("secondary")}>Rename</button>
               </form>
               <span className="text-sm text-muted">{count.get(c.id) ?? 0} giveaways</span>
-              <form action={deleteCategory}>
-                <input type="hidden" name="id" value={c.id} />
-                <ConfirmButton message={`Delete the “${c.name}” category?`}>Delete</ConfirmButton>
-              </form>
+              {count.get(c.id) ? (
+                <span className="flex items-center gap-2" title="Move its giveaways to another category first">
+                  <button type="button" disabled className={buttonClass("danger")}>
+                    Delete
+                  </button>
+                  <span className={`text-xs ${c.id === errorId ? "font-semibold text-red-700" : "text-muted"}`}>Move its giveaways first</span>
+                </span>
+              ) : (
+                <form action={deleteCategory}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <ConfirmButton message={`Delete “${c.name}”?`}>Delete</ConfirmButton>
+                </form>
+              )}
             </li>
           ))}
         </ul>
