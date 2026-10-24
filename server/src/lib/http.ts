@@ -38,9 +38,20 @@ export async function readJson<T = Record<string, unknown>>(request: Request): P
   }
 }
 
-/** Absolute URL for a stored path like "/uploads/x.webp", based on the host the app called. */
+/**
+ * Absolute URL for a stored path like "/uploads/x.webp". Uses PUBLIC_URL when set (needed behind a
+ * reverse proxy such as CloudPanel's Nginx, which forwards requests as localhost), then the forwarded
+ * host headers, then the address the request came in on.
+ */
 export function absUrl(request: Request, path: string | null | undefined): string | null {
   if (!path) return null;
   if (/^https?:\/\//.test(path)) return path;
-  return new URL(path, request.url).toString();
+  return new URL(path, publicOrigin(request)).toString();
+}
+
+function publicOrigin(request: Request) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
+  const host = request.headers.get("x-forwarded-host");
+  if (host) return `${request.headers.get("x-forwarded-proto")?.split(",")[0] ?? "https"}://${host.split(",")[0]}`;
+  return request.url;
 }
